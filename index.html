@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>App Tính Lương Hưu BHXH</title>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
 :root{--blue:#0b5fff;--green:#0f9d58;--bg:#f4f7fb;--card:#fff;--text:#1f2937;--muted:#6b7280;--border:#e5e7eb}
 *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--text)}
@@ -88,7 +89,7 @@ ul,ol{padding-left:20px}li{margin:6px 0}code{background:#eef2ff;padding:2px 6px;
 </div>
 
 <div id="tab-app">
-<section class="card"><h2>1. Thông tin người dùng</h2>
+<section class="card" id="secUser"><h2>1. Thông tin người dùng</h2>
 <div class="grid">
 <div><label>Họ tên</label><input id="name" placeholder="Nguyễn Văn A"></div>
 <div><label>Giới tính</label><select id="gender"><option value="male">Nam</option><option value="female">Nữ</option></select></div>
@@ -114,10 +115,10 @@ ul,ol{padding-left:20px}li{margin:6px 0}code{background:#eef2ff;padding:2px 6px;
 <p class="note" id="userEmpty">Chưa có người dùng nào được lưu.</p>
 </section>
 
-<section class="card"><h2>3. Quá trình đóng BHXH</h2>
+<section class="card" id="secRows"><h2>3. Quá trình đóng BHXH</h2>
 <div class="grid">
-<div><label>Từ tháng/năm </label><input id="from" placeholder="Ví dụ: 10/2001 hoặc 102001" inputmode="numeric"></div>
-<div><label>Đến tháng/năm </label><input id="to" placeholder="Ví dụ: 09/2002 hoặc 092002" inputmode="numeric"></div>
+<div><label>Từ tháng/năm (MM/YYYY hoặc MMYYYY)</label><input id="from" placeholder="Ví dụ: 10/2001 hoặc 102001" inputmode="numeric"></div>
+<div><label>Đến tháng/năm (MM/YYYY hoặc MMYYYY)</label><input id="to" placeholder="Ví dụ: 09/2002 hoặc 092002" inputmode="numeric"></div>
 <div><label>Mức lương/thu nhập đóng BHXH/tháng</label><input type="number" id="salary" min="0" step="1000" placeholder="Ví dụ: 8000000"></div>
 <div><label>Hệ số điều chỉnh</label><input type="number" id="factor" step="0.01" min="0" placeholder="Để trống để tự động"></div>
 </div>
@@ -142,7 +143,7 @@ ul,ol{padding-left:20px}li{margin:6px 0}code{background:#eef2ff;padding:2px 6px;
 <p class="note">Nhập thời gian theo định dạng <b>MM/YYYY</b> hoặc <b>MMYYYY</b> (6 số, không cần dấu /). Mức bình quân tiền lương = Tổng (Số tháng × Mức đóng × Hệ số điều chỉnh) ÷ Tổng số tháng đóng.</p>
 </section>
 
-<section class="card"><h2>4. Kết quả tính toán</h2>
+<section class="card" id="secResults"><h2>4. Kết quả tính toán</h2>
 <div class="actions no-print"><button class="green" onclick="calculate()">Tính lương hưu / BHXH một lần</button></div>
 <div id="warning" class="warning hidden"></div>
 <div id="results" class="hidden"><div class="result-grid" style="margin-top:14px">
@@ -158,7 +159,7 @@ ul,ol{padding-left:20px}li{margin:6px 0}code{background:#eef2ff;padding:2px 6px;
 </div>
 <div class="card" style="margin-top:14px;background:#f8fafc"><b>Chi tiết tính BHXH một lần</b><div id="lumpDetail" class="note"></div></div>
 <p class="note" id="rNote"></p></div>
-<div class="actions no-print"><button class="gray" onclick="window.print()">Xuất PDF / In</button><button class="gray" onclick="exportCSV()">Xuất Excel (CSV)</button></div>
+<div class="actions no-print"><button class="gray" onclick="exportPNG()">Xuất PNG</button><button class="gray" onclick="exportCSV()">Xuất Excel (CSV)</button></div>
 </section>
 
 <section class="card"><h2>5. Cấu hình nhanh</h2>
@@ -399,7 +400,6 @@ function queueSave(){
   clearTimeout(saveTimer);
   saveTimer=setTimeout(async()=>{
     if(!currentUserId)return;
-    // Nếu ID chưa phải UUID (hồ sơ mới chưa được Supabase tạo), chỉ lưu local, KHÔNG tạo thêm dòng cloud
     if(!isUuid(currentUserId)){saveJSON(CACHE_KEY,users);return}
     const u=users.find(x=>x.id===currentUserId);if(!u)return;
     saveJSON(CACHE_KEY,users);
@@ -440,7 +440,6 @@ async function saveUser(){
     const i=users.findIndex(x=>x.id===currentUserId);
     if(i>=0){users[i]={...users[i],...u,rows:JSON.parse(JSON.stringify(rows)),updatedAt:new Date().toISOString()};saveUsers();queueSave();alert('Đã cập nhật người dùng: '+u.name);return}
   }
-  // Tránh tạo trùng nếu đang tạo cloud
   if(creatingCloud)return;
   creatingCloud=true;
   const nu=normalizeUser({...u,rows:JSON.parse(JSON.stringify(rows))});
@@ -501,8 +500,8 @@ async function deleteUser(id){
 function renderUsers(){const tb=document.querySelector('#userTable tbody');tb.innerHTML='';$('userEmpty').classList.toggle('hidden',users.length>0);users.forEach((u,i)=>{tb.innerHTML+=`<tr><td>${i+1}</td><td>${esc(u.name)}</td><td>${u.gender==='female'?'Nữ':'Nam'}</td><td>${esc(u.birth||'-')}</td><td>${u.type==='tu_nguyen'?'Tự nguyện':'Bắt buộc'}</td><td>${(u.rows||[]).length}</td><td><button class="gray" onclick="openUser('${u.id}')">Mở</button> <button class="red" onclick="deleteUser('${u.id}')">Xóa</button></td></tr>`})}
 
 function downloadJSON(data,filename){const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click()}
-function exportCurrentUserJSON(){autoSaveCurrentUser();const u=users.find(x=>x.id===currentUserId);if(!u){alert('Vui lòng nhập họ tên trước khi xuất JSON.');return}downloadJSON({app:'App Tính Lương Hưu BHXH',version:13,exportedAt:new Date().toISOString(),user:u},'nguoi-dung-bhxh-'+(u.name||'ho-so').replace(/\s+/g,'-')+'.json')}
-function exportAllJSON(){autoSaveCurrentUser();if(!users.length){alert('Chưa có người dùng nào để xuất JSON.');return}downloadJSON({app:'App Tính Lương Hưu BHXH',version:13,exportedAt:new Date().toISOString(),users},'tat-ca-nguoi-dung-bhxh-'+new Date().toISOString().slice(0,10)+'.json')}
+function exportCurrentUserJSON(){autoSaveCurrentUser();const u=users.find(x=>x.id===currentUserId);if(!u){alert('Vui lòng nhập họ tên trước khi xuất JSON.');return}downloadJSON({app:'App Tính Lương Hưu BHXH',version:15,exportedAt:new Date().toISOString(),user:u},'nguoi-dung-bhxh-'+(u.name||'ho-so').replace(/\s+/g,'-')+'.json')}
+function exportAllJSON(){autoSaveCurrentUser();if(!users.length){alert('Chưa có người dùng nào để xuất JSON.');return}downloadJSON({app:'App Tính Lương Hưu BHXH',version:15,exportedAt:new Date().toISOString(),users},'tat-ca-nguoi-dung-bhxh-'+new Date().toISOString().slice(0,10)+'.json')}
 function importJSON(event){
   const file=event.target.files[0];if(!file)return;
   const reader=new FileReader();
@@ -620,6 +619,61 @@ function exportCSV(){
   rows.forEach((r,i)=>{const adj=Number.isFinite(r.months*r.salary*r.factor)?Math.round(r.months*r.salary*r.factor):0;csv+=`${i+1},${monthLabel(r.from)},${monthLabel(r.to)},${r.months||0},${r.salary||0},${r.factor||0},${adj}\n`});
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bao-cao-tinh-luong-huu.csv';a.click();}
 
+async function exportPNG(){
+  const g = $('gender').value === 'female' ? 'Nữ' : 'Nam';
+  const name = $('name').value.trim() || '-';
+  const birth = monthLabel(parseMonth($('birth').value)) || '-';
+  const type = $('type').value === 'tu_nguyen' ? 'Tự nguyện' : 'Bắt buộc';
+
+  let rowsHtml = rows.map((r,i) =>
+    `<tr><td>${i+1}</td><td>${monthLabel(r.from)}</td><td>${monthLabel(r.to)}</td>` +
+    `<td>${r.months}</td><td>${fmt(r.salary)}</td><td>${r.factor}</td><td>${fmt(r.months*r.salary*r.factor)}</td></tr>`
+  ).join('');
+
+  const resultsEl = document.getElementById('results');
+  const resultsHtml = (resultsEl && !resultsEl.classList.contains('hidden'))
+    ? resultsEl.innerHTML
+    : '<p>Chưa có kết quả tính toán.</p>';
+
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;left:-9999px;top:0;background:#fff;padding:24px;width:900px;font-family:Arial,sans-serif;color:#1f2937';
+
+  wrap.innerHTML = `
+    <h2 style="margin:0 0 12px">Thông tin người dùng</h2>
+    <p style="margin:0 0 16px;line-height:1.6">
+      <b>Họ tên:</b> ${esc(name)}<br>
+      <b>Giới tính:</b> ${g}<br>
+      <b>Tháng/Năm sinh:</b> ${birth}<br>
+      <b>Đối tượng tham gia:</b> ${type}
+    </p>
+    <h2 style="margin:0 0 12px">Quá trình đóng BHXH</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr>
+        <th style="border:1px solid #e5e7eb;padding:6px">STT</th>
+        <th style="border:1px solid #e5e7eb;padding:6px">Từ</th>
+        <th style="border:1px solid #e5e7eb;padding:6px">Đến</th>
+        <th style="border:1px solid #e5e7eb;padding:6px">Số tháng</th>
+        <th style="border:1px solid #e5e7eb;padding:6px">Mức đóng/tháng</th>
+        <th style="border:1px solid #e5e7eb;padding:6px">Hệ số</th>
+        <th style="border:1px solid #e5e7eb;padding:6px">Tổng đã điều chỉnh</th>
+      </tr></thead>
+      <tbody>${rowsHtml || '<tr><td colspan="7">Chưa có dữ liệu</td></tr>'}</tbody>
+    </table>
+    <h2 style="margin:18px 0 12px">Kết quả tính toán</h2>
+    <div>${resultsHtml}</div>
+  `;
+
+  document.body.appendChild(wrap);
+  try{
+    const canvas = await html2canvas(wrap, {scale:2, backgroundColor:'#ffffff', useCORS:true});
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = 'bao-cao-bhxh-'+new Date().toISOString().slice(0,10)+'.png';
+    a.click();
+  }catch(e){ alert('Không tạo được PNG: '+e.message) }
+  document.body.removeChild(wrap);
+}
+
 function loadFactors(){const raw=safeGet(FACTOR_KEY);try{factors=JSON.parse(raw||'{}');if(!factors||typeof factors!=='object'||Array.isArray(factors))factors={}}catch(e){factors={}}if(!Object.keys(factors).length)factors={...DEFAULT_FACTORS};renderFactors()}
 function saveFactors(){safeSet(FACTOR_KEY,JSON.stringify(factors));renderFactors()}
 function renderFactors(){
@@ -658,6 +712,7 @@ const remembered=loadJSON(REMEMBER_KEY,null);
 if(remembered){$('authEmail').value=remembered.email||'';$('authPassword').value=remembered.password||'';$('rememberMe').checked=true}
 const savedSession=loadJSON(SESSION_KEY,null);
 if(savedSession&&savedSession.access_token){session=savedSession;(async()=>{if(await ensureSession()){await enterApp()}else{signOut()}})()}
+loadUsers();
 loadFactors();
 setConn(false);
 </script>

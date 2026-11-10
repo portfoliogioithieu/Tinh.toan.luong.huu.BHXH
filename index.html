@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BHXH Hưu">
+<meta name="theme-color" content="#0b5fff">
 <title>App Tính Lương Hưu BHXH</title>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
@@ -500,8 +504,8 @@ async function deleteUser(id){
 function renderUsers(){const tb=document.querySelector('#userTable tbody');tb.innerHTML='';$('userEmpty').classList.toggle('hidden',users.length>0);users.forEach((u,i)=>{tb.innerHTML+=`<tr><td>${i+1}</td><td>${esc(u.name)}</td><td>${u.gender==='female'?'Nữ':'Nam'}</td><td>${esc(u.birth||'-')}</td><td>${u.type==='tu_nguyen'?'Tự nguyện':'Bắt buộc'}</td><td>${(u.rows||[]).length}</td><td><button class="gray" onclick="openUser('${u.id}')">Mở</button> <button class="red" onclick="deleteUser('${u.id}')">Xóa</button></td></tr>`})}
 
 function downloadJSON(data,filename){const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click()}
-function exportCurrentUserJSON(){autoSaveCurrentUser();const u=users.find(x=>x.id===currentUserId);if(!u){alert('Vui lòng nhập họ tên trước khi xuất JSON.');return}downloadJSON({app:'App Tính Lương Hưu BHXH',version:15,exportedAt:new Date().toISOString(),user:u},'nguoi-dung-bhxh-'+(u.name||'ho-so').replace(/\s+/g,'-')+'.json')}
-function exportAllJSON(){autoSaveCurrentUser();if(!users.length){alert('Chưa có người dùng nào để xuất JSON.');return}downloadJSON({app:'App Tính Lương Hưu BHXH',version:15,exportedAt:new Date().toISOString(),users},'tat-ca-nguoi-dung-bhxh-'+new Date().toISOString().slice(0,10)+'.json')}
+function exportCurrentUserJSON(){autoSaveCurrentUser();const u=users.find(x=>x.id===currentUserId);if(!u){alert('Vui lòng nhập họ tên trước khi xuất JSON.');return}downloadJSON({app:'App Tính Lương Hưu BHXH',version:17,exportedAt:new Date().toISOString(),user:u},'nguoi-dung-bhxh-'+(u.name||'ho-so').replace(/\s+/g,'-')+'.json')}
+function exportAllJSON(){autoSaveCurrentUser();if(!users.length){alert('Chưa có người dùng nào để xuất JSON.');return}downloadJSON({app:'App Tính Lương Hưu BHXH',version:17,exportedAt:new Date().toISOString(),users},'tat-ca-nguoi-dung-bhxh-'+new Date().toISOString().slice(0,10)+'.json')}
 function importJSON(event){
   const file=event.target.files[0];if(!file)return;
   const reader=new FileReader();

@@ -658,6 +658,7 @@ const remembered=loadJSON(REMEMBER_KEY,null);
 if(remembered){$('authEmail').value=remembered.email||'';$('authPassword').value=remembered.password||'';$('rememberMe').checked=true}
 const savedSession=loadJSON(SESSION_KEY,null);
 if(savedSession&&savedSession.access_token){session=savedSession;(async()=>{if(await ensureSession()){await enterApp()}else{signOut()}})()}
+loadFactors();
 setConn(false);
 </script>
 </body>

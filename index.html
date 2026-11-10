@@ -7,7 +7,11 @@
 <style>
 :root{--blue:#0b5fff;--green:#0f9d58;--bg:#f4f7fb;--card:#fff;--text:#1f2937;--muted:#6b7280;--border:#e5e7eb}
 *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--text)}
-header{background:linear-gradient(90deg,#0b5fff,#0f9d58);color:#fff;padding:22px}header h1{margin:0;font-size:24px}header p{margin:6px 0 0;opacity:.9}
+header{background:linear-gradient(90deg,#0b5fff,#0f9d58);color:#fff;padding:22px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+header h1{margin:0;font-size:24px}header p{margin:6px 0 0;opacity:.9}
+.status{font-size:12px;font-weight:bold;padding:8px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.4)}
+.status.ok{background:rgba(255,255,255,.2)}
+.status.off{background:rgba(255,255,255,.15)}
 main{max-width:1100px;margin:20px auto;padding:0 16px}
 .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
 .tab{padding:11px 16px;border-radius:8px;border:1px solid var(--border);background:#fff;font-weight:bold;cursor:pointer}
@@ -35,14 +39,48 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{border:1px solid 
 ul,ol{padding-left:20px}li{margin:6px 0}code{background:#eef2ff;padding:2px 6px;border-radius:4px;font-size:13px}
 .factor-row{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:center;margin-bottom:10px}
 .factor-row input{padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px}
+.check{display:flex;align-items:center;gap:8px;font-size:13px;margin:10px 0}
+.check input{width:18px;height:18px;accent-color:var(--blue)}
+.auth-card{max-width:420px;margin:40px auto}
 @media(max-width:640px){.grid{grid-template-columns:1fr}.factor-row{grid-template-columns:1fr 1fr auto}}
 @media print{header{background:#0b5fff}.card{box-shadow:none}.no-print{display:none}.tabs{display:none}}
 </style>
 </head>
 <body>
-<header><h1>App Tính Lương Hưu BHXH</h1><p>Quản lý hồ sơ, quá trình đóng BHXH, tính lương hưu và BHXH một lần</p></header>
+<header>
+  <div>
+    <h1>App Tính Lương Hưu BHXH</h1>
+    <p>Quản lý hồ sơ, quá trình đóng BHXH, tính lương hưu và BHXH một lần</p>
+  </div>
+  <div class="status off" id="connStatus">⚠️ Chưa kết nối</div>
+</header>
 <main>
 <div id="storageWarning" class="storage-warning hidden">⚠️ Safari/Trình duyệt hiện không cho phép lưu dữ liệu lâu dài. Dữ liệu có thể mất khi tắt Safari. Hãy xuất JSON để sao lưu trước khi đóng.</div>
+
+<!-- AUTH -->
+<div id="authScreen">
+  <div class="card auth-card">
+    <h2>Đăng nhập / Đăng ký</h2>
+    <p class="note">Mỗi tài khoản có kho dữ liệu riêng, bảo mật bằng RLS của Supabase.</p>
+    <div class="grid" style="margin-top:14px">
+      <div><label>Email</label><input id="authEmail" type="email" inputmode="email" placeholder="you@email.com"></div>
+      <div><label>Mật khẩu</label><input id="authPassword" type="password" placeholder="••••••••"></div>
+    </div>
+    <label class="check"><input type="checkbox" id="rememberMe"> Ghi nhớ email & mật khẩu để lần sau không cần nhập lại</label>
+    <div class="actions" style="margin-top:6px">
+      <button class="primary" style="flex:1" onclick="signIn()">Đăng nhập</button>
+      <button class="gray" style="flex:1" onclick="signUp()">Đăng ký</button>
+    </div>
+    <div class="actions">
+      <button class="gray" style="flex:1" onclick="resetPassword()">Quên mật khẩu</button>
+    </div>
+    <p class="note" id="authMsg"></p>
+    <p class="note">Dữ liệu được lưu trên Supabase và đồng bộ tự động. Không dùng chế độ Ẩn danh nếu muốn giữ phiên đăng nhập.</p>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="mainApp" class="hidden">
 <div class="tabs no-print">
 <button class="tab active" onclick="showTab('app',this)">Ứng dụng tính toán</button>
 <button class="tab" onclick="showTab('factor',this)">Hệ số điều chỉnh</button>
@@ -54,7 +92,7 @@ ul,ol{padding-left:20px}li{margin:6px 0}code{background:#eef2ff;padding:2px 6px;
 <div class="grid">
 <div><label>Họ tên</label><input id="name" placeholder="Nguyễn Văn A"></div>
 <div><label>Giới tính</label><select id="gender"><option value="male">Nam</option><option value="female">Nữ</option></select></div>
-<div><label>Tháng/Năm sinh (MM/YYYY)</label><input id="birth" placeholder="Ví dụ: 10/1980" inputmode="numeric"></div>
+<div><label>Tháng/Năm sinh (MM/YYYY hoặc MMYYYY)</label><input id="birth" placeholder="Ví dụ: 10/1980 hoặc 101980" inputmode="numeric"></div>
 <div><label>Đối tượng tham gia</label><select id="type"><option value="bat_buoc">BHXH bắt buộc</option><option value="tu_nguyen">BHXH tự nguyện</option></select></div>
 </div>
 <div class="actions no-print">
@@ -65,7 +103,11 @@ ul,ol{padding-left:20px}li{margin:6px 0}code{background:#eef2ff;padding:2px 6px;
 <button class="gray" onclick="document.getElementById('jsonFile').click()">Nhập JSON</button>
 <input type="file" id="jsonFile" accept=".json,application/json" class="hidden" onchange="importJSON(event)">
 </div>
-<p class="note">App tự động lưu và sẽ mở lại hồ sơ gần nhất khi bạn mở app. Với Safari trên iPhone, nên xuất JSON để sao lưu định kỳ; tránh dùng chế độ Ẩn danh.</p>
+<p class="note">Đã đăng nhập: <b id="userEmail">-</b>. App tự động lưu và đồng bộ lên Supabase sau mỗi thay đổi.</p>
+<div class="actions no-print">
+<button class="gray" onclick="signOut()">Đăng xuất</button>
+<button class="gray" onclick="syncNow()">Đồng bộ ngay</button>
+</div>
 </section>
 
 <section class="card no-print"><h2>2. Danh sách người dùng đã lưu</h2>
@@ -75,8 +117,8 @@ ul,ol{padding-left:20px}li{margin:6px 0}code{background:#eef2ff;padding:2px 6px;
 
 <section class="card"><h2>3. Quá trình đóng BHXH</h2>
 <div class="grid">
-<div><label>Từ tháng/năm (MM/YYYY)</label><input id="from" placeholder="Ví dụ: 10/2001" inputmode="numeric"></div>
-<div><label>Đến tháng/năm (MM/YYYY)</label><input id="to" placeholder="Ví dụ: 09/2002" inputmode="numeric"></div>
+<div><label>Từ tháng/năm </label><input id="from" placeholder="Ví dụ: 10/2001 hoặc 102001" inputmode="numeric"></div>
+<div><label>Đến tháng/năm </label><input id="to" placeholder="Ví dụ: 09/2002 hoặc 092002" inputmode="numeric"></div>
 <div><label>Mức lương/thu nhập đóng BHXH/tháng</label><input type="number" id="salary" min="0" step="1000" placeholder="Ví dụ: 8000000"></div>
 <div><label>Hệ số điều chỉnh</label><input type="number" id="factor" step="0.01" min="0" placeholder="Để trống để tự động"></div>
 </div>
@@ -98,7 +140,7 @@ ul,ol{padding-left:20px}li{margin:6px 0}code{background:#eef2ff;padding:2px 6px;
 <table id="table"><thead><tr><th>STT</th><th>Từ</th><th>Đến</th><th>Số tháng</th><th>Mức đóng/tháng</th><th>Hệ số điều chỉnh</th><th>Tổng đã điều chỉnh</th><th class="no-print">Thao tác</th></tr></thead><tbody></tbody>
 <tfoot><tr><th colspan="3">Tổng cộng</th><th id="totalMonths">0</th><th></th><th></th><th id="totalAdjusted">0 đ</th><th class="no-print"></th></tr></tfoot></table>
 </div>
-<p class="note">Nhập thời gian theo định dạng <b>MM/YYYY</b>. Mức bình quân tiền lương = Tổng (Số tháng × Mức đóng × Hệ số điều chỉnh) ÷ Tổng số tháng đóng.</p>
+<p class="note">Nhập thời gian theo định dạng <b>MM/YYYY</b> hoặc <b>MMYYYY</b> (6 số, không cần dấu /). Mức bình quân tiền lương = Tổng (Số tháng × Mức đóng × Hệ số điều chỉnh) ÷ Tổng số tháng đóng.</p>
 </section>
 
 <section class="card"><h2>4. Kết quả tính toán</h2>
@@ -159,7 +201,7 @@ ul,ol{padding-left:20px}li{margin:6px 0}code{background:#eef2ff;padding:2px 6px;
 <p>Ứng dụng giúp ước tính lương hưu hàng tháng và BHXH một lần dựa trên quá trình đóng BHXH bạn nhập. Kết quả chỉ mang tính tham khảo; mức hưởng thực tế do cơ quan BHXH xác định theo hồ sơ và quy định pháp luật tại thời điểm hưởng.</p>
 <h3>1. Nhập quá trình đóng BHXH</h3>
 <ol>
-<li>Chọn giới tính và nhập tháng/năm sinh theo định dạng <code>MM/YYYY</code>, ví dụ <code>10/1980</code>.</li>
+<li>Chọn giới tính và nhập tháng/năm sinh theo định dạng <code>MM/YYYY</code> hoặc <code>MMYYYY</code> (6 số).</li>
 <li>Chọn BHXH bắt buộc hoặc BHXH tự nguyện.</li>
 <li>Nhập từng giai đoạn đóng: từ tháng/năm, đến tháng/năm, mức lương/thu nhập đóng BHXH.</li>
 <li>Để trống ô hệ số điều chỉnh để app tự áp dụng theo năm; hoặc nhập thủ công nếu có căn cứ riêng.</li>
@@ -198,321 +240,426 @@ ul,ol{padding-left:20px}li{margin:6px 0}code{background:#eef2ff;padding:2px 6px;
 <li><b>Nhập JSON:</b> chọn file JSON để thêm hồ sơ vào danh sách hiện có.</li>
 </ul>
 <p class="note">File JSON chứa đầy đủ thông tin người dùng và từng dòng quá trình đóng: từ tháng/năm, đến tháng/năm, số tháng, mức lương/thu nhập và hệ số điều chỉnh.</p>
-<h3>9. Safari trên iPhone</h3>
+<h3>9. Supabase & Safari</h3>
 <ul>
-<li>App sẽ tự mở lại hồ sơ gần nhất khi bạn mở lại Safari.</li>
-<li>Không dùng chế độ Ẩn danh/Individual because Safari có thể không lưu dữ liệu.</li>
-<li>Khi đổi iPhone, đổi trình duyệt hoặc xóa dữ liệu trang web, hãy xuất JSON trước rồi nhập lại.</li>
-<li>Để dữ liệu ổn định nhất, nên mở app qua đường dẫn web (https) thay vì mở file HTML trực tiếp từ Files.</li>
+<li>Mỗi tài khoản có kho dữ liệu riêng; đăng nhập bằng email nào thì chỉ thấy dữ liệu của email đó.</li>
+<li>Dữ liệu lưu trên Supabase, không mất khi đổi máy hoặc xóa Safari.</li>
+<li>App vẫn giữ bản cache trên máy để mở nhanh; khi có mạng sẽ đồng bộ lại.</li>
+<li>Không dùng chế độ Ẩn danh; nếu dùng, dữ liệu có thể không lưu được.</li>
 </ul>
 </section>
+</div>
 </div>
 </main>
 
 <script>
-const STORAGE_KEY='bhxh_users_v1';
+// ===== Helper functions defined FIRST =====
+const fmt = n => Number.isFinite(n) ? new Intl.NumberFormat('vi-VN').format(Math.round(n)) + ' đ' : '-';
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const parseMonth = v => {
+  if(!v) return null;
+  let s = String(v).trim();
+  let m = s.match(/^(\d{1,2})[\/\-](\d{4})$/); // MM/YYYY hoặc MM-YYYY
+  if(!m) m = s.match(/^(\d{2})(\d{4})$/);      // MMYYYY (6 số)
+  if(!m) m = s.match(/^(\d{4})-(\d{1,2})$/);   // YYYY-MM
+  if(!m) return null;
+  let month, year;
+  if(m.length===3 && s.includes('-') && s.indexOf('-')===4){ // YYYY-MM
+    year=parseInt(m[1],10); month=parseInt(m[2],10);
+  } else {
+    month=parseInt(m[1],10); year=parseInt(m[2],10);
+  }
+  if(month<1||month>12||year<1900||year>2100) return null;
+  return {date:new Date(year,month-1,1), label:String(month).padStart(2,'0')+'/'+year};
+};
+const monthDiff = (a,b) => (b.date.getFullYear()-a.date.getFullYear())*12 + (b.date.getMonth()-a.date.getMonth()) + 1;
+const num = v => { if(v===null||v===undefined||String(v).trim()==='') return NaN; const n=parseFloat(String(v).trim().replace(/,/g,'.')); return Number.isFinite(n)?n:NaN; };
+const monthLabel = x => x ? x.label : '-';
+const yearsText = y => Math.floor(y)+' năm '+Math.round((y%1)*12)+' tháng';
+function roundYears(months){const full=Math.floor(months/12),r=months%12;if(r>=7)return full+1;if(r>=1)return full+0.5;return full}
+function pensionYears(months){const full=Math.floor(months/12),r=months%12;if(r>=7)return full+1;if(r>=1)return full+0.5;return full}
+function isUuid(v){return typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)}
+function autoFactor(m){
+  const y=m.date.getFullYear();
+  if(y<1995) return factors.pre1995 ?? 5.81;
+  return factors[y] ?? 1;
+}
+
+// ===== Supabase config =====
+const SUPABASE_URL='https://nwixucevlbjdctiadjun.supabase.co';
+const SUPABASE_KEY='sb_publishable_QPI3oes2h9NlaoinUWdclw_aUk_W6ps';
+const TABLE='bhxh_profiles';
+const SESSION_KEY='hsg_session_v44';
+const REMEMBER_KEY='hsg_remember_v44';
+const CACHE_KEY='hsg_cache_v44';
 const FACTOR_KEY='bhxh_factors_v1';
 const CURRENT_KEY='bhxh_current_user_v1';
-let rows=[],users=[],currentUserId=null,editingIndex=null;
-let factors={},tableVisible=true,storageOK=true;
+
+let session=null,users=[],rows=[],currentUserId=null,editingIndex=null;
+let factors={},tableVisible=true,storageOK=false,creatingCloud=false;
 
 const DEFAULT_FACTORS={pre1995:5.81,1995:4.91,1996:4.65,1997:4.50,1998:4.18,1999:4.01,2000:4.07,2001:4.09,2002:3.94,2003:3.81,2004:3.54,2005:3.27,2006:3.05,2007:2.81,2008:2.29,2009:2.14,2010:1.96,2011:1.65,2012:1.51,2013:1.42,2014:1.36,2015:1.36,2016:1.32,2017:1.28,2018:1.23,2019:1.20,2020:1.16,2021:1.14,2022:1.11,2023:1.07,2024:1.03,2025:1.00,2026:1.00};
 
-function safeGet(key){try{return localStorage.getItem(key)}catch(e){storageOK=false;return null}}
-function safeSet(key,value){try{localStorage.setItem(key,value);storageOK=true}catch(e){storageOK=false;showStorageWarning()}}
+const $=id=>document.getElementById(id);
+function setConn(ok){const el=$('connStatus');el.textContent=ok?'☁️ Đã kết nối':'⚠️ Chưa kết nối';el.className='status '+(ok?'ok':'off')}
 
-function showStorageWarning(){document.getElementById('storageWarning').classList.remove('hidden')}
+function safeGet(k){try{return localStorage.getItem(k)}catch(e){storageOK=false;return null}}
+function safeSet(k,v){try{localStorage.setItem(k,v);storageOK=true}catch(e){storageOK=false;showStorageWarning()}}
+function showStorageWarning(){$('storageWarning').classList.remove('hidden')}
+function loadJSON(key,fallback){try{const v=localStorage.getItem(key);return v?JSON.parse(v):fallback}catch(e){return fallback}}
+function saveJSON(key,value){try{localStorage.setItem(key,JSON.stringify(value))}catch(e){storageOK=false;showStorageWarning()}}
 
-function showTab(id,btn){
-document.getElementById('tab-app').classList.toggle('hidden',id!=='app');
-document.getElementById('tab-factor').classList.toggle('hidden',id!=='factor');
-document.getElementById('tab-guide').classList.toggle('hidden',id!=='guide');
-document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
-btn.classList.add('active');
+function headers(auth=true,extra={}){const h={'apikey':SUPABASE_KEY,'Content-Type':'application/json',...extra};if(auth&&session?.access_token)h['Authorization']='Bearer '+session.access_token;return h}
+
+async function api(path,method='GET',body=null,auth=true,extra={}){
+  const opt={method,headers:headers(auth,extra)};
+  if(body)opt.body=JSON.stringify(body);
+  const res=await fetch(SUPABASE_URL+path,opt);
+  const text=await res.text();
+  let data=null;try{data=text?JSON.parse(text):null}catch(e){}
+  if(!res.ok){const msg=data?.msg||data?.error_description||data?.message||('Lỗi '+res.status);throw new Error(msg)}
+  return data;
 }
 
-function toggleTable(){
-tableVisible=!tableVisible;
-document.getElementById('tableWrapper').classList.toggle('hidden',!tableVisible);
-document.getElementById('toggleTableBtn').textContent=tableVisible?'Ẩn bảng quá trình đóng':'Hiện bảng quá trình đóng';
+async function refreshSession(){
+  if(!session?.refresh_token)return false;
+  try{
+    const d=await api('/auth/v1/token?grant_type=refresh_token','POST',{refresh_token:session.refresh_token},false);
+    session={access_token:d.access_token,refresh_token:d.refresh_token,expires_at:Date.now()+(d.expires_in||3600)*1000,user:d.user};
+    saveJSON(SESSION_KEY,session);setConn(true);return true;
+  }catch(e){setConn(false);return false}
 }
 
-const parseMonth=v=>{if(!v)return null;const s=String(v).trim();const m=s.match(/^(\d{1,2})\s*\/\s*(\d{4})$/);if(!m)return null;const month=parseInt(m[1],10),year=parseInt(m[2],10);if(month<1||month>12||year<1900||year>2100)return null;return {date:new Date(year,month-1,1),label:String(month).padStart(2,'0')+'/'+year}};
-const monthDiff=(a,b)=>(b.date.getFullYear()-a.date.getFullYear())*12+(b.date.getMonth()-a.date.getMonth())+1;
-const num=v=>{if(v===null||v===undefined||String(v).trim()==='')return NaN;const n=parseFloat(String(v).trim().replace(/,/g,'.'));return Number.isFinite(n)?n:NaN};
-const fmt=n=>Number.isFinite(n)?new Intl.NumberFormat('vi-VN').format(Math.round(n))+' đ':'-';
-const monthLabel=x=>x?x.label:'-';
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const yearsText=y=>Math.floor(y)+' năm '+Math.round((y%1)*12)+' tháng';
-function roundYears(months){const full=Math.floor(months/12),r=months%12;if(r>=7)return full+1;if(r>=1)return full+0.5;return full}
-function pensionYears(months){const full=Math.floor(months/12),r=months%12;if(r>=7)return full+1;if(r>=1)return full+0.5;return full}
-function getFactorYear(y){if(y<1995)return factors.pre1995??DEFAULT_FACTORS.pre1995;const v=factors[y];return Number.isFinite(v)?v:1}
-function autoFactor(m){return getFactorYear(m.date.getFullYear())}
+async function ensureSession(){
+  if(!session)return false;
+  if(session.expires_at&&Date.now()>session.expires_at-60000){const ok=await refreshSession();if(!ok)return false}
+  return true;
+}
+
+async function signIn(){
+  const email=$('authEmail').value.trim(),password=$('authPassword').value;
+  if(!email||!password)return authMsg('Vui lòng nhập email và mật khẩu.');
+  try{
+    const d=await api('/auth/v1/token?grant_type=password','POST',{email,password},false);
+    session={access_token:d.access_token,refresh_token:d.refresh_token,expires_at:Date.now()+(d.expires_in||3600)*1000,user:d.user};
+    saveJSON(SESSION_KEY,session);
+    if($('rememberMe').checked)saveJSON(REMEMBER_KEY,{email,password});else localStorage.removeItem(REMEMBER_KEY);
+    setConn(true);enterApp();
+  }catch(e){authMsg('Đăng nhập thất bại: '+e.message)}
+}
+
+async function signUp(){
+  const email=$('authEmail').value.trim(),password=$('authPassword').value;
+  if(!email||!password)return authMsg('Vui lòng nhập email và mật khẩu.');
+  if(password.length<6)return authMsg('Mật khẩu phải ít nhất 6 ký tự.');
+  try{
+    await api('/auth/v1/signup','POST',{email,password},false);
+    authMsg('✅ Đăng ký thành công. Nếu Supabase yêu cầu xác nhận email, hãy kiểm tra hộp thư rồi đăng nhập.');
+    if($('rememberMe').checked)saveJSON(REMEMBER_KEY,{email,password});
+  }catch(e){
+    const m=String(e.message).toLowerCase();
+    if(m.includes('already')||m.includes('exists')||m.includes('đã tồn tại'))authMsg('Email này đã tồn tại. Hãy chọn “Đăng nhập”.');
+    else authMsg('Đăng ký thất bại: '+e.message);
+  }
+}
+
+async function resetPassword(){
+  const email=$('authEmail').value.trim();
+  if(!email)return authMsg('Nhập email để nhận link đặt lại mật khẩu.');
+  try{await api('/auth/v1/recover','POST',{email},false);authMsg('✅ Đã gửi email đặt lại mật khẩu.')}catch(e){authMsg('Không gửi được: '+e.message)}
+}
+
+function authMsg(m){$('authMsg').textContent=m}
+
+function signOut(){
+  session=null;localStorage.removeItem(SESSION_KEY);
+  users=[];rows=[];currentUserId=null;
+  $('mainApp').classList.add('hidden');$('authScreen').classList.remove('hidden');
+  setConn(false);authMsg('Đã đăng xuất.');
+}
+
+async function enterApp(){
+  $('authScreen').classList.add('hidden');$('mainApp').classList.remove('hidden');
+  $('userEmail').textContent=session?.user?.email||'';
+  await syncNow();
+}
+
+async function syncNow(){
+  if(!await ensureSession()){setConn(false);alert('Phiên hết hạn, vui lòng đăng nhập lại.');signOut();return}
+  try{
+    const data=await api('/rest/v1/'+TABLE+'?select=id,data,updated_at&order=updated_at.desc');
+    users=(data||[]).map(r=>normalizeUser({...r.data, id:r.id}));
+    saveJSON(CACHE_KEY,users);
+    if(users.length){const latest=users[0];currentUserId=latest.id;rows=JSON.parse(JSON.stringify(latest.rows||[]));setUserForm(latest)}else{newUserSilent()}
+    renderUsers();render();setConn(true);
+  }catch(e){setConn(false);alert('Không tải được dữ liệu: '+e.message)}
+}
+
+let saveTimer=null;
+function queueSave(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(async()=>{
+    if(!currentUserId)return;
+    // Nếu ID chưa phải UUID (hồ sơ mới chưa được Supabase tạo), chỉ lưu local, KHÔNG tạo thêm dòng cloud
+    if(!isUuid(currentUserId)){saveJSON(CACHE_KEY,users);return}
+    const u=users.find(x=>x.id===currentUserId);if(!u)return;
+    saveJSON(CACHE_KEY,users);
+    if(!await ensureSession()){setConn(false);return}
+    try{
+      await api('/rest/v1/'+TABLE+'?id=eq.'+currentUserId,'PATCH',{data:u,updated_at:new Date().toISOString()});
+      setConn(true);
+    }catch(e){setConn(false);alert('Lưu cloud thất bại: '+e.message)}
+  },700);
+}
+
+function loadUsers(){
+  users=loadJSON(CACHE_KEY,[]);
+  renderUsers();
+  if(users.length){const latest=users[0];currentUserId=latest.id;rows=JSON.parse(JSON.stringify(latest.rows||[]));setUserForm(latest);render()}
+}
+
+function saveUsers(){saveJSON(CACHE_KEY,users);if(currentUserId)saveJSON(CURRENT_KEY,currentUserId);renderUsers()}
+
+function getUserForm(){return{name:$('name').value.trim(),gender:$('gender').value,birth:$('birth').value.trim(),type:$('type').value}}
+function setUserForm(u){$('name').value=u.name||'';$('gender').value=u.gender||'male';$('birth').value=u.birth||'';$('type').value=u.type||'bat_buoc'}
+
+function normalizeUser(u){return{id:u.id||('u_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)),name:String(u.name||'Người dùng chưa đặt tên'),gender:u.gender==='female'?'female':'male',birth:String(u.birth||''),type:u.type==='tu_nguyen'?'tu_nguyen':'bat_buoc',rows:Array.isArray(u.rows)?u.rows.map(r=>({from:r.from||null,to:r.to||null,months:Number(r.months)||0,salary:Number(r.salary)||0,factor:Number(r.factor)||0})):[],createdAt:u.createdAt||new Date().toISOString(),updatedAt:u.updatedAt||new Date().toISOString()}}
+
+function autoSaveCurrentUser(){
+  if(!currentUserId)return false;
+  const i=users.findIndex(x=>x.id===currentUserId);if(i<0)return false;
+  const u=getUserForm();if(!u.name)return false;
+  users[i]={...users[i],...u,rows:JSON.parse(JSON.stringify(rows)),updatedAt:new Date().toISOString()};
+  saveUsers();queueSave();return true;
+}
+
+async function saveUser(){
+  const u=getUserForm();
+  if(!u.name){alert('Vui lòng nhập họ tên trước khi lưu.');return}
+  if(!parseMonth(u.birth)){alert('Tháng/Năm sinh phải đúng định dạng MM/YYYY hoặc MMYYYY.');return}
+  if(currentUserId&&isUuid(currentUserId)){
+    const i=users.findIndex(x=>x.id===currentUserId);
+    if(i>=0){users[i]={...users[i],...u,rows:JSON.parse(JSON.stringify(rows)),updatedAt:new Date().toISOString()};saveUsers();queueSave();alert('Đã cập nhật người dùng: '+u.name);return}
+  }
+  // Tránh tạo trùng nếu đang tạo cloud
+  if(creatingCloud)return;
+  creatingCloud=true;
+  const nu=normalizeUser({...u,rows:JSON.parse(JSON.stringify(rows))});
+  users.push(nu);currentUserId=nu.id;saveUsers();
+  if(await ensureSession()){
+    try{
+      const created=await api('/rest/v1/'+TABLE,'POST',{user_id:session.user.id,data:nu});
+      let newId=null;
+      if(Array.isArray(created)&&created[0]?.id)newId=created[0].id;
+      else if(created&&created.id)newId=created.id;
+      if(newId){
+        const oldId=nu.id;
+        nu.id=newId;currentUserId=newId;
+        const i=users.findIndex(x=>x.id===oldId);if(i>=0)users[i]=nu;
+        saveUsers();
+      }
+      setConn(true);
+    }catch(e){setConn(false);alert('Lưu cloud thất bại: '+e.message)}
+  }
+  creatingCloud=false;
+  render();renderUsers();
+}
+
+function newUser(){
+  autoSaveCurrentUser();
+  if(rows.length||$('name').value.trim()){if(!confirm('Tạo hồ sơ mới sẽ xóa dữ liệu đang nhập trên màn hình. Tiếp tục?'))return}
+  newUserSilent();
+}
+function newUserSilent(){currentUserId=null;rows=[];editingIndex=null;$('name').value='';$('birth').value='';$('gender').value='male';$('type').value='bat_buoc';render();$('results').classList.add('hidden');$('warning').classList.add('hidden');safeSet(CURRENT_KEY,'')}
+
+async function openUser(id){
+  if(id===currentUserId)return;
+  autoSaveCurrentUser();
+  const u=users.find(x=>x.id===id);if(!u)return;
+  currentUserId=id;rows=JSON.parse(JSON.stringify(u.rows||[]));editingIndex=null;setUserForm(u);render();$('results').classList.add('hidden');$('warning').classList.add('hidden');safeSet(CURRENT_KEY,id);window.scrollTo({top:0,behavior:'smooth'})}
+
+async function deleteUser(id){
+  if(id===currentUserId)autoSaveCurrentUser();
+  const u=users.find(x=>x.id===id);if(!u)return;
+  if(!confirm('Xóa người dùng "'+u.name+'"? Hành động này không thể hoàn tác.'))return;
+  users=users.filter(x=>x.id!==id);
+  if(currentUserId===id)newUserSilent();
+  saveUsers();
+  if(isUuid(id)){
+    if(!await ensureSession()){alert('Phiên hết hạn, không xóa được trên cloud. Vui lòng đăng nhập lại rồi thử lại.');return}
+    try{
+      const res=await api('/rest/v1/'+TABLE+'?id=eq.'+id,'DELETE',null,true,{'Prefer':'return=representation'});
+      if(Array.isArray(res)&&res.length===0){
+        alert('Không xóa được trên cloud (RLS chặn hoặc user_id không khớp). Hãy chạy SQL gán user_id rồi thử lại.');
+      }else{
+        alert('Đã xóa trên cloud.');
+      }
+      setConn(true);
+    }catch(e){setConn(false);alert('Xóa cloud thất bại: '+e.message)}
+  }
+}
+
+function renderUsers(){const tb=document.querySelector('#userTable tbody');tb.innerHTML='';$('userEmpty').classList.toggle('hidden',users.length>0);users.forEach((u,i)=>{tb.innerHTML+=`<tr><td>${i+1}</td><td>${esc(u.name)}</td><td>${u.gender==='female'?'Nữ':'Nam'}</td><td>${esc(u.birth||'-')}</td><td>${u.type==='tu_nguyen'?'Tự nguyện':'Bắt buộc'}</td><td>${(u.rows||[]).length}</td><td><button class="gray" onclick="openUser('${u.id}')">Mở</button> <button class="red" onclick="deleteUser('${u.id}')">Xóa</button></td></tr>`})}
+
+function downloadJSON(data,filename){const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click()}
+function exportCurrentUserJSON(){autoSaveCurrentUser();const u=users.find(x=>x.id===currentUserId);if(!u){alert('Vui lòng nhập họ tên trước khi xuất JSON.');return}downloadJSON({app:'App Tính Lương Hưu BHXH',version:13,exportedAt:new Date().toISOString(),user:u},'nguoi-dung-bhxh-'+(u.name||'ho-so').replace(/\s+/g,'-')+'.json')}
+function exportAllJSON(){autoSaveCurrentUser();if(!users.length){alert('Chưa có người dùng nào để xuất JSON.');return}downloadJSON({app:'App Tính Lương Hưu BHXH',version:13,exportedAt:new Date().toISOString(),users},'tat-ca-nguoi-dung-bhxh-'+new Date().toISOString().slice(0,10)+'.json')}
+function importJSON(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      let incoming=[];
+      if(Array.isArray(data))incoming=data;
+      else if(Array.isArray(data.users))incoming=data.users;
+      else if(data.user&&typeof data.user==='object')incoming=[data.user];
+      else throw new Error('Cấu trúc file không hợp lệ');
+      for(const u of incoming){if(!u||typeof u!=='object')continue;const nu=normalizeUser(u);users.push(nu);if(await ensureSession()&&isUuid(nu.id)){try{await api('/rest/v1/'+TABLE,'POST',{user_id:session.user.id,data:nu})}catch(e){}}}
+      saveUsers();renderUsers();alert('Đã nhập '+incoming.length+' hồ sơ.');
+    }catch(err){alert('Không thể đọc file JSON: '+err.message)}
+    event.target.value='';
+  };
+  reader.readAsText(file);
+}
+
+function addRow(){
+  const f=parseMonth($('from').value),t=parseMonth($('to').value);
+  const salary=num($('salary').value),factorText=$('factor').value.trim();
+  if(!f){alert('Từ tháng/năm phải đúng định dạng MM/YYYY hoặc MMYYYY.');return}
+  if(!t){alert('Đến tháng/năm phải đúng định dạng MM/YYYY hoặc MMYYYY.');return}
+  if(!Number.isFinite(salary)||salary<=0){alert('Mức lương/thu nhập phải lớn hơn 0.');return}
+  if(t.date<f.date){alert('Thời gian kết thúc phải sau hoặc bằng thời gian bắt đầu.');return}
+  const months=monthDiff(f,t);
+  let factor;
+  if(factorText===''){factor=autoFactor(f)}else{factor=num(factorText);if(!Number.isFinite(factor)||factor<=0){alert('Hệ số phải lớn hơn 0.');return}}
+  const rowData={from:f,to:t,months,salary,factor};
+  if(editingIndex!==null&&rows[editingIndex]){rows[editingIndex]=rowData;editingIndex=null}else rows.push(rowData);
+  $('from').value='';$('to').value='';$('salary').value='';$('factor').value='';
+  render();autoSaveCurrentUser();
+}
+
+function editRow(i){
+  const r=rows[i];if(!r)return;
+  editingIndex=i;
+  if(!tableVisible)toggleTable();
+  $('from').value=monthLabel(r.from);$('to').value=monthLabel(r.to);$('salary').value=r.salary;$('factor').value=r.factor;
+  $('from').focus();
+  window.scrollTo({top:$('from').getBoundingClientRect().top+window.scrollY-120,behavior:'smooth'});
+  render()}
+
+function cancelEdit(){editingIndex=null;$('from').value='';$('to').value='';$('salary').value='';$('factor').value='';render()}
+
+function addQuickYear(){
+  const f=parseMonth($('from').value),salary=num($('salary').value);
+  if(!f){alert('Vui lòng nhập Từ tháng/năm theo định dạng MM/YYYY hoặc MMYYYY.');return}
+  if(!Number.isFinite(salary)||salary<=0){alert('Mức lương/thu nhập phải lớn hơn 0.');return}
+  const d2=new Date(f.date);d2.setMonth(d2.getMonth()+11);
+  const t={date:d2,label:String(d2.getMonth()+1).padStart(2,'0')+'/'+d2.getFullYear()};
+  rows.push({from:f,to:t,months:12,salary,factor:autoFactor(f)});
+  render();autoSaveCurrentUser();}
+
+function removeRow(i){if(editingIndex===i)editingIndex=null;else if(editingIndex!==null&&editingIndex>i)editingIndex--;rows.splice(i,1);render();autoSaveCurrentUser()}
+function clearRows(){if(confirm('Xóa toàn bộ các dòng đã nhập?')){rows=[];editingIndex=null;render();autoSaveCurrentUser();$('results').classList.add('hidden');$('warning').classList.add('hidden')}}
+
+function render(){
+  const tb=document.querySelector('#table tbody');tb.innerHTML='';
+  let tm=0,ta=0;
+  rows.forEach((r,i)=>{
+    const months=Number.isFinite(r.months)?r.months:0,salary=Number.isFinite(r.salary)?r.salary:0,factor=Number.isFinite(r.factor)?r.factor:0;
+    const adj=months*salary*factor;tm+=months;ta+=adj;
+    tb.innerHTML+=`<tr><td>${i+1}</td><td>${monthLabel(r.from)}</td><td>${monthLabel(r.to)}</td><td>${months}</td><td>${fmt(salary)}</td><td>${factor}</td><td>${fmt(adj)}</td><td class="no-print"><button class="gray" onclick="editRow(${i})">Sửa</button> <button class="red" onclick="removeRow(${i})">Xóa</button></td></tr>`});
+  $('totalMonths').textContent=tm;$('totalAdjusted').textContent=fmt(ta);
+  $('summaryMonths').textContent=tm+' tháng ('+yearsText(tm/12)+')';
+  $('summaryAdjusted').textContent=fmt(ta);
+  $('averagePreview').textContent=tm>0?fmt(ta/tm):'-';
+  $('addRowBtn').textContent=editingIndex!==null?'Cập nhật dòng đang sửa':'Thêm dòng';
+  $('cancelEditBtn').classList.toggle('hidden',editingIndex===null);}
+
+function calculate(){
+  if(!rows.length){alert('Chưa có dữ liệu quá trình đóng BHXH.');return}
+  autoSaveCurrentUser();
+  const g=$('gender').value;
+  const tm=rows.reduce((s,r)=>s+(Number.isFinite(r.months)?r.months:0),0);
+  const ta=rows.reduce((s,r)=>s+(Number.isFinite(r.months)&&Number.isFinite(r.salary)&&Number.isFinite(r.factor)?r.months*r.salary*r.factor:0),0);
+  const rawTotal=rows.reduce((s,r)=>s+(Number.isFinite(r.months)&&Number.isFinite(r.salary)?r.months*r.salary:0),0);
+  if(tm<=0||ta<=0){alert('Dữ liệu chưa hợp lệ.');return}
+  const avg=ta/tm,years=tm/12,rounded=pensionYears(tm);
+  const missingYears=Math.max(0,15-years),missingMonths=Math.max(0,180-tm);
+  let before2014Months=0,from2014Months=0;
+  rows.forEach(r=>{let rem=r.months,cur=new Date(r.from.date);while(rem>0){if(cur.getFullYear()<2014)before2014Months++;else from2014Months++;rem--;cur.setMonth(cur.getMonth()+1)}});
+  const bY=roundYears(before2014Months),fY=roundYears(from2014Months);
+  const totalLump=bY+fY;
+  let lumpSum,lumpFormula;
+  if(tm<12){const byC=rawTotal*0.22,byA=2*avg;lumpSum=Math.min(byC,byA);lumpFormula=`Đóng chưa đủ 1 năm: min(22% tổng đã đóng (${fmt(byC)}), 2 tháng Mbqtl (${fmt(byA)})).`}
+  else{const p1=1.5*avg*bY,p2=2*avg*fY;lumpSum=p1+p2;lumpFormula=`Trước 2014: ${bY} năm × 1,5 × ${fmt(avg)} = ${fmt(p1)}<br>Từ 2014: ${fY} năm × 2 × ${fmt(avg)} = ${fmt(p2)}<br><b>Tổng: ${fmt(lumpSum)}</b>`}
+  const warning=$('warning'),results=$('results');
+  $('rYears').textContent=yearsText(years);$('rLumpYears').textContent=totalLump+' năm';
+  $('rMissing').textContent=missingYears>0?yearsText(missingYears)+' (thiếu '+missingMonths+' tháng)':'Đã đủ 15 năm';
+  $('rAverage').textContent=fmt(avg);$('lumpDetail').innerHTML=lumpFormula;
+  if(years<15){warning.classList.remove('hidden');warning.innerHTML='⚠️ Chưa đủ 15 năm để hưởng lương hưu hàng tháng. Còn thiếu <b>'+yearsText(missingYears)+'</b>.';$('rRate').textContent='Chưa đủ điều kiện';$('rPension').textContent='Chưa đủ điều kiện';$('rPensionYear').textContent='Chưa đủ điều kiện';$('rLumpSum').textContent=fmt(lumpSum);$('rNote').textContent='BHXH một lần ước tính theo công thức 1,5 tháng Mbqtl/năm trước 2014 và 2 tháng Mbqtl/năm từ 2014.'}
+  else{
+    warning.classList.add('hidden');
+    const base=g==='male'?num($('maleBase').value):num($('femaleBase').value);
+    const baseYears=g==='male'?num($('maleYears').value):num($('femaleYears').value);
+    const inc=num($('increase').value),max=num($('maxRate').value);
+    if(!Number.isFinite(base)||!Number.isFinite(baseYears)||!Number.isFinite(inc)||!Number.isFinite(max)){alert('Cấu hình tỷ lệ chưa hợp lệ.');return}
+    let rate=base;
+    if(g==='male'&&rounded>=15&&rounded<20)rate=40+(rounded-15)*1;
+    else if(rounded>=baseYears)rate=Math.min(max,base+(rounded-baseYears)*inc);
+    const pension=avg*rate/100;
+    $('rRate').textContent=rate.toFixed(2).replace(/\.00$/,'')+'%';
+    $('rPension').textContent=fmt(pension);$('rPensionYear').textContent=fmt(pension*12);$('rLumpSum').textContent=fmt(lumpSum);
+    $('rNote').textContent='Tỷ lệ hưởng tính theo thời gian đã làm tròn: 01–06 tháng = 0,5 năm; 07–11 tháng = 1 năm.';
+  }
+  const birth=parseMonth($('birth').value);
+  $('rRetire').textContent=birth?'Cần kiểm tra theo tuổi nghỉ hưu và số năm đóng hiện có':'Chưa nhập hoặc nhập sai tháng/năm sinh';
+  results.classList.remove('hidden');}
+
+function exportCSV(){
+  let csv='\uFEFFSTT,Từ,Đến,Số tháng,Mức đóng/tháng,Hệ số điều chỉnh,Tổng đã điều chỉnh\n';
+  rows.forEach((r,i)=>{const adj=Number.isFinite(r.months*r.salary*r.factor)?Math.round(r.months*r.salary*r.factor):0;csv+=`${i+1},${monthLabel(r.from)},${monthLabel(r.to)},${r.months||0},${r.salary||0},${r.factor||0},${adj}\n`});
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bao-cao-tinh-luong-huu.csv';a.click();}
 
 function loadFactors(){const raw=safeGet(FACTOR_KEY);try{factors=JSON.parse(raw||'{}');if(!factors||typeof factors!=='object'||Array.isArray(factors))factors={}}catch(e){factors={}}if(!Object.keys(factors).length)factors={...DEFAULT_FACTORS};renderFactors()}
 function saveFactors(){safeSet(FACTOR_KEY,JSON.stringify(factors));renderFactors()}
 function renderFactors(){
-const tb=document.querySelector('#factorTable tbody');tb.innerHTML='';
-const years=Object.keys(factors).filter(k=>k!=='pre1995').map(Number).sort((a,b)=>a-b);
-const total=years.length+(factors.pre1995!==undefined?1:0);
-document.getElementById('factorEmpty').classList.toggle('hidden',total>0);
-if(factors.pre1995!==undefined){tb.innerHTML+=`<tr><td>Trước 1995</td><td><input type="number" step="0.01" value="${factors.pre1995}" onchange="updateFactor('pre1995',this.value)"></td><td class="no-print"><button class="red" onclick="deleteFactor('pre1995')">Xóa</button></td></tr>`}
-years.forEach(y=>{tb.innerHTML+=`<tr><td>${y}</td><td><input type="number" step="0.01" value="${factors[y]}" onchange="updateFactor('${y}',this.value)"></td><td class="no-print"><button class="red" onclick="deleteFactor('${y}')">Xóa</button></td></tr>`});
+  const tb=document.querySelector('#factorTable tbody');tb.innerHTML='';
+  const years=Object.keys(factors).filter(k=>k!=='pre1995').map(Number).sort((a,b)=>a-b);
+  const total=years.length+(factors.pre1995!==undefined?1:0);
+  $('factorEmpty').classList.toggle('hidden',total>0);
+  if(factors.pre1995!==undefined)tb.innerHTML+=`<tr><td>Trước 1995</td><td><input type="number" step="0.01" value="${factors.pre1995}" onchange="updateFactor('pre1995',this.value)"></td><td class="no-print"><button class="red" onclick="deleteFactor('pre1995')">Xóa</button></td></tr>`;
+  years.forEach(y=>{tb.innerHTML+=`<tr><td>${y}</td><td><input type="number" step="0.01" value="${factors[y]}" onchange="updateFactor('${y}',this.value)"></td><td class="no-print"><button class="red" onclick="deleteFactor('${y}')">Xóa</button></td></tr>`});
 }
-function updateFactor(k,v){const n=num(v);if(!Number.isFinite(n)||n<=0){alert('Hệ số phải là số lớn hơn 0.');renderFactors();return}factors[k]=n;saveFactors();alert('Đã cập nhật hệ số '+k)}
+function updateFactor(k,v){const n=num(v);if(!Number.isFinite(n)||n<=0){alert('Hệ số phải lớn hơn 0.');renderFactors();return}factors[k]=n;saveFactors();alert('Đã cập nhật hệ số '+k)}
 function deleteFactor(k){if(!confirm('Xóa hệ số năm '+k+'?'))return;delete factors[k];saveFactors()}
-function addFactor(){const y=document.getElementById('newFactorYear').value.trim();const v=num(document.getElementById('newFactorValue').value);if(!y||!Number.isFinite(Number(y))){alert('Vui lòng nhập năm hợp lệ.');return}if(Number(y)<1900||Number(y)>2100){alert('Năm phải trong khoảng 1900–2100.');return}if(!Number.isFinite(v)||v<=0){alert('Hệ số phải là số lớn hơn 0.');return}factors[y]=v;saveFactors();document.getElementById('newFactorYear').value='';document.getElementById('newFactorValue').value='';alert('Đã thêm hệ số năm '+y)}
-function resetFactors(){if(!confirm('Khôi phục bảng hệ số về mặc định?'))return;factors={...DEFAULT_FACTORS};saveFactors();alert('Đã khôi phục hệ số mặc định.')}
-function clearFactors(){if(!confirm('Xóa toàn bộ hệ số điều chỉnh?'))return;factors={};saveFactors()}
+function addFactor(){const y=$('newFactorYear').value.trim(),v=num($('newFactorValue').value);if(!y||!Number.isFinite(Number(y))){alert('Nhập năm hợp lệ.');return}if(!Number.isFinite(v)||v<=0){alert('Hệ số phải lớn hơn 0.');return}factors[y]=v;saveFactors();$('newFactorYear').value='';$('newFactorValue').value='';alert('Đã thêm hệ số năm '+y)}
+function resetFactors(){if(!confirm('Khôi phục hệ số mặc định?'))return;factors={...DEFAULT_FACTORS};saveFactors();alert('Đã khôi phục mặc định.')}
+function clearFactors(){if(!confirm('Xóa toàn bộ hệ số?'))return;factors={};saveFactors()}
 
-function loadUsers(){
-const raw=safeGet(STORAGE_KEY);
-try{users=JSON.parse(raw||'[]');if(!Array.isArray(users))users=[]}catch(e){users=[]}
-renderUsers();
-// Restore last opened user
-const savedCurrent=safeGet(CURRENT_KEY);
-if(savedCurrent){
-const u=users.find(x=>x.id===savedCurrent);
-if(u){currentUserId=u.id;rows=JSON.parse(JSON.stringify(u.rows||[]));setUserForm(u);render();return}
-}
-// If no current user but users exist, open the most recently updated
-if(users.length){
-const latest=[...users].sort((a,b)=>new Date(b.updatedAt||0)-new Date(a.updatedAt||0))[0];
-currentUserId=latest.id;rows=JSON.parse(JSON.stringify(latest.rows||[]));setUserForm(latest);render();
-}
+function showTab(id,btn){
+  $('tab-app').classList.toggle('hidden',id!=='app');
+  $('tab-factor').classList.toggle('hidden',id!=='factor');
+  $('tab-guide').classList.toggle('hidden',id!=='guide');
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
 }
 
-function saveUsers(){safeSet(STORAGE_KEY,JSON.stringify(users));if(currentUserId)safeSet(CURRENT_KEY,currentUserId);renderUsers()}
-function getUserForm(){return {name:document.getElementById('name').value.trim(),gender:document.getElementById('gender').value,birth:document.getElementById('birth').value.trim(),type:document.getElementById('type').value}}
-function setUserForm(u){document.getElementById('name').value=u.name||'';document.getElementById('gender').value=u.gender||'male';document.getElementById('birth').value=u.birth||'';document.getElementById('type').value=u.type||'bat_buoc'}
-
-function normalizeUser(u){
-return {id:u.id||('u_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)),name:String(u.name||'Người dùng chưa đặt tên'),gender:u.gender==='female'?'female':'male',birth:String(u.birth||''),type:u.type==='tu_nguyen'?'tu_nguyen':'bat_buoc',rows:Array.isArray(u.rows)?u.rows.map(r=>({from:r.from||null,to:r.to||null,months:Number(r.months)||0,salary:Number(r.salary)||0,factor:Number(r.factor)||0})):[],createdAt:u.createdAt||new Date().toISOString(),updatedAt:u.updatedAt||new Date().toISOString()}}
-
-function autoSaveCurrentUser(){
-if(!currentUserId)return false;
-const i=users.findIndex(x=>x.id===currentUserId);
-if(i<0)return false;
-const u=getUserForm();
-if(!u.name)return false;
-users[i]={...users[i],...u,rows:JSON.parse(JSON.stringify(rows)),updatedAt:new Date().toISOString()};
-saveUsers();return true}
-
-function saveUser(){
-const u=getUserForm();
-if(!u.name){alert('Vui lòng nhập họ tên trước khi lưu.');return}
-if(!parseMonth(u.birth)){alert('Tháng/Năm sinh phải đúng định dạng MM/YYYY. Ví dụ: 10/1980');return}
-if(currentUserId){const i=users.findIndex(x=>x.id===currentUserId);if(i>=0){users[i]={...users[i],...u,rows:JSON.parse(JSON.stringify(rows)),updatedAt:new Date().toISOString()};alert('Đã cập nhật người dùng: '+u.name);saveUsers();return}}
-const id='u_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
-users.push(normalizeUser({id,...u,rows:JSON.parse(JSON.stringify(rows))}));
-currentUserId=id;alert('Đã lưu người dùng mới: '+u.name);saveUsers()}
-
-function newUser(){
-autoSaveCurrentUser();
-if(rows.length||document.getElementById('name').value.trim()){if(!confirm('Tạo hồ sơ mới sẽ xóa dữ liệu đang nhập trên màn hình. Tiếp tục?'))return}
-newUserSilent()}
-
-function newUserSilent(){currentUserId=null;rows=[];editingIndex=null;document.getElementById('name').value='';document.getElementById('birth').value='';document.getElementById('gender').value='male';document.getElementById('type').value='bat_buoc';render();document.getElementById('results').classList.add('hidden');document.getElementById('warning').classList.add('hidden');safeSet(CURRENT_KEY,'')}
-
-function openUser(id){
-if(id===currentUserId)return;
-autoSaveCurrentUser();
-const u=users.find(x=>x.id===id);if(!u)return;
-currentUserId=id;rows=JSON.parse(JSON.stringify(u.rows||[]));editingIndex=null;setUserForm(u);render();document.getElementById('results').classList.add('hidden');document.getElementById('warning').classList.add('hidden');safeSet(CURRENT_KEY,id);window.scrollTo({top:0,behavior:'smooth'})}
-
-function deleteUser(id){
-if(id===currentUserId)autoSaveCurrentUser();
-const u=users.find(x=>x.id===id);if(!u)return;
-if(!confirm('Xóa người dùng "'+u.name+'"? Hành động này không thể hoàn tác.'))return;
-users=users.filter(x=>x.id!==id);
-if(currentUserId===id)newUserSilent();
-saveUsers()}
-
-function renderUsers(){const tb=document.querySelector('#userTable tbody');tb.innerHTML='';document.getElementById('userEmpty').classList.toggle('hidden',users.length>0);users.forEach((u,i)=>{tb.innerHTML+=`<tr><td>${i+1}</td><td>${esc(u.name)}</td><td>${u.gender==='female'?'Nữ':'Nam'}</td><td>${esc(u.birth||'-')}</td><td>${u.type==='tu_nguyen'?'Tự nguyện':'Bắt buộc'}</td><td>${(u.rows||[]).length}</td><td><button class="gray" onclick="openUser('${u.id}')">Mở</button> <button class="red" onclick="deleteUser('${u.id}')">Xóa</button></td></tr>`})}
-
-function downloadJSON(data,filename){const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click()}
-
-function exportCurrentUserJSON(){
-autoSaveCurrentUser();
-const u=getUserForm();
-if(!u.name){alert('Vui lòng nhập họ tên trước khi xuất JSON.');return}
-const data={app:'App Tính Lương Hưu BHXH',version:7,exportedAt:new Date().toISOString(),user:normalizeUser({...u,id:currentUserId||undefined,rows:JSON.parse(JSON.stringify(rows))})};
-downloadJSON(data,'nguoi-dung-bhxh-'+(u.name||'ho-so').replace(/\s+/g,'-')+'.json')}
-
-function exportAllJSON(){
-autoSaveCurrentUser();
-if(!users.length){alert('Chưa có người dùng nào được lưu để xuất JSON.');return}
-const data={app:'App Tính Lương Hưu BHXH',version:7,exportedAt:new Date().toISOString(),users:users};
-downloadJSON(data,'tat-ca-nguoi-dung-bhxh-'+new Date().toISOString().slice(0,10)+'.json')}
-
-function importJSON(event){
-const file=event.target.files[0];if(!file)return;
-const reader=new FileReader();
-reader.onload=e=>{
-try{
-const data=JSON.parse(e.target.result);
-let incoming=[];
-if(Array.isArray(data))incoming=data;
-else if(Array.isArray(data.users))incoming=data.users;
-else if(data.user&&typeof data.user==='object')incoming=[data.user];
-else throw new Error('Cấu trúc file không hợp lệ');
-let added=0;
-incoming.forEach(u=>{if(!u||typeof u!=='object')return;users.push(normalizeUser(u));added++});
-saveUsers();alert('Đã nhập thành công '+added+' người dùng và toàn bộ quá trình thời gian đóng BHXH từ file JSON.');
-}catch(err){alert('Không thể đọc file JSON: '+err.message)}
-event.target.value=''};
-reader.readAsText(file)}
-
-function addRow(){
-const f=parseMonth(document.getElementById('from').value);
-const t=parseMonth(document.getElementById('to').value);
-const salary=num(document.getElementById('salary').value);
-const factorText=document.getElementById('factor').value.trim();
-if(!f){alert('Từ tháng/năm phải đúng định dạng MM/YYYY. Ví dụ: 10/2001');return}
-if(!t){alert('Đến tháng/năm phải đúng định dạng MM/YYYY. Ví dụ: 09/2002');return}
-if(!Number.isFinite(salary)||salary<=0){alert('Mức lương/thu nhập đóng BHXH phải là số lớn hơn 0.');return}
-if(t.date<f.date){alert('Thời gian kết thúc phải sau hoặc bằng thời gian bắt đầu.');return}
-const months=monthDiff(f,t);
-let factor;
-if(factorText===''){factor=autoFactor(f)}
-else{factor=num(factorText);if(!Number.isFinite(factor)||factor<=0){alert('Hệ số điều chỉnh phải là số lớn hơn 0. Ví dụ: 4.09');return}}
-const rowData={from:f,to:t,months,salary,factor};
-if(editingIndex!==null&&rows[editingIndex]){rows[editingIndex]=rowData;editingIndex=null}
-else{rows.push(rowData)}
-document.getElementById('from').value='';document.getElementById('to').value='';document.getElementById('salary').value='';document.getElementById('factor').value='';
-render();autoSaveCurrentUser();}
-
-function editRow(i){
-const r=rows[i];if(!r)return;
-editingIndex=i;
-if(!tableVisible)toggleTable();
-document.getElementById('from').value=monthLabel(r.from);
-document.getElementById('to').value=monthLabel(r.to);
-document.getElementById('salary').value=r.salary;
-document.getElementById('factor').value=r.factor;
-document.getElementById('from').focus();
-window.scrollTo({top:document.getElementById('from').getBoundingClientRect().top+window.scrollY-120,behavior:'smooth'});
-render()}
-
-function cancelEdit(){editingIndex=null;document.getElementById('from').value='';document.getElementById('to').value='';document.getElementById('salary').value='';document.getElementById('factor').value='';render()}
-
-function addQuickYear(){
-const f=parseMonth(document.getElementById('from').value);
-const salary=num(document.getElementById('salary').value);
-if(!f){alert('Vui lòng nhập Từ tháng/năm theo định dạng MM/YYYY. Ví dụ: 10/2001');return}
-if(!Number.isFinite(salary)||salary<=0){alert('Mức lương/thu nhập đóng BHXH phải là số lớn hơn 0.');return}
-const d2=new Date(f.date);d2.setMonth(d2.getMonth()+11);
-const t={date:d2,label:String(d2.getMonth()+1).padStart(2,'0')+'/'+d2.getFullYear()};
-rows.push({from:f,to:t,months:12,salary,factor:autoFactor(f)});
-render();autoSaveCurrentUser();}
-
-function removeRow(i){if(editingIndex===i)editingIndex=null;else if(editingIndex!==null&&editingIndex>i)editingIndex--;rows.splice(i,1);render();autoSaveCurrentUser()}
-function clearRows(){if(confirm('Xóa toàn bộ các dòng đã nhập?')){rows=[];editingIndex=null;render();autoSaveCurrentUser();document.getElementById('results').classList.add('hidden');document.getElementById('warning').classList.add('hidden')}}
-
-function render(){
-const tb=document.querySelector('#table tbody');tb.innerHTML='';
-let tm=0,ta=0;
-rows.forEach((r,i)=>{
-const months=Number.isFinite(r.months)?r.months:0;
-const salary=Number.isFinite(r.salary)?r.salary:0;
-const factor=Number.isFinite(r.factor)?r.factor:0;
-const adj=months*salary*factor;tm+=months;ta+=adj;
-tb.innerHTML+=`<tr><td>${i+1}</td><td>${monthLabel(r.from)}</td><td>${monthLabel(r.to)}</td><td>${months}</td><td>${fmt(salary)}</td><td>${factor}</td><td>${fmt(adj)}</td><td class="no-print"><button class="gray" onclick="editRow(${i})">Sửa</button> <button class="red" onclick="removeRow(${i})">Xóa</button></td></tr>`});
-document.getElementById('totalMonths').textContent=tm;
-document.getElementById('totalAdjusted').textContent=fmt(ta);
-document.getElementById('summaryMonths').textContent=tm+' tháng ('+yearsText(tm/12)+')';
-document.getElementById('summaryAdjusted').textContent=fmt(ta);
-document.getElementById('averagePreview').textContent=tm>0?fmt(ta/tm):'-';
-document.getElementById('addRowBtn').textContent=editingIndex!==null?'Cập nhật dòng đang sửa':'Thêm dòng';
-document.getElementById('cancelEditBtn').classList.toggle('hidden',editingIndex===null);}
-
-function calculate(){
-if(!rows.length){alert('Chưa có dữ liệu quá trình đóng BHXH.');return}
-autoSaveCurrentUser();
-const g=document.getElementById('gender').value;
-const type=document.getElementById('type').value;
-const tm=rows.reduce((s,r)=>s+(Number.isFinite(r.months)?r.months:0),0);
-const ta=rows.reduce((s,r)=>s+(Number.isFinite(r.months)&&Number.isFinite(r.salary)&&Number.isFinite(r.factor)?r.months*r.salary*r.factor:0),0);
-const rawTotal=rows.reduce((s,r)=>s+(Number.isFinite(r.months)&&Number.isFinite(r.salary)?r.months*r.salary:0),0);
-if(tm<=0||ta<=0){alert('Dữ liệu chưa hợp lệ. Vui lòng kiểm tra số tháng, mức lương và hệ số điều chỉnh.');return}
-const avg=ta/tm;
-const years=tm/12;
-const roundedPensionYears=pensionYears(tm);
-const missingYears=Math.max(0,15-years);
-const missingMonths=Math.max(0,180-tm);
-
-let before2014Months=0,from2014Months=0;
-rows.forEach(r=>{let remaining=r.months,cur=new Date(r.from.date);while(remaining>0){if(cur.getFullYear()<2014)before2014Months++;else from2014Months++;remaining--;cur.setMonth(cur.getMonth()+1)}});
-const before2014Years=roundYears(before2014Months);
-const from2014Years=roundYears(from2014Months);
-const totalLumpYears=before2014Years+from2014Years;
-
-let lumpSum,lumpFormula;
-if(tm<12){
-const byContribution=rawTotal*0.22;
-const byAverage=2*avg;
-lumpSum=Math.min(byContribution,byAverage);
-lumpFormula=`Đóng chưa đủ 1 năm: mức hưởng = 22% tổng tiền lương/thu nhập đã đóng (${fmt(byContribution)}), nhưng không vượt quá 2 tháng mức bình quân tiền lương (${fmt(byAverage)}).`;
-}else{
-const part1=1.5*avg*before2014Years;
-const part2=2*avg*from2014Years;
-lumpSum=part1+part2;
-lumpFormula=`Trước 2014: ${before2014Years} năm × 1,5 × ${fmt(avg)} = ${fmt(part1)}<br>Từ 2014 trở đi: ${from2014Years} năm × 2 × ${fmt(avg)} = ${fmt(part2)}<br><b>Tổng: ${fmt(lumpSum)}</b>`;
+function toggleTable(){
+  tableVisible=!tableVisible;
+  $('tableWrapper').classList.toggle('hidden',!tableVisible);
+  $('toggleTableBtn').textContent=tableVisible?'Ẩn bảng quá trình đóng':'Hiện bảng quá trình đóng';
 }
 
-const warning=document.getElementById('warning');
-const results=document.getElementById('results');
-document.getElementById('rYears').textContent=yearsText(years);
-document.getElementById('rLumpYears').textContent=totalLumpYears+' năm';
-document.getElementById('rMissing').textContent=missingYears>0?yearsText(missingYears)+' (còn thiếu '+missingMonths+' tháng)':'Đã đủ 15 năm';
-document.getElementById('rAverage').textContent=fmt(avg);
-document.getElementById('lumpDetail').innerHTML=lumpFormula;
-
-if(years<15){
-warning.classList.remove('hidden');
-warning.innerHTML='⚠️ Chưa đủ thời gian đóng BHXH để nhận lương hưu hàng tháng. Bạn đang có <b>'+yearsText(years)+'</b>, còn thiếu <b>'+yearsText(missingYears)+'</b> để đạt 15 năm. Có thể cân nhắc tiếp tục đóng, đóng bù nếu đủ tuổi và đủ điều kiện, hoặc tìm hiểu hưởng BHXH một lần.';
-document.getElementById('rRate').textContent='Chưa đủ điều kiện';
-document.getElementById('rPension').textContent='Chưa đủ điều kiện';
-document.getElementById('rPensionYear').textContent='Chưa đủ điều kiện';
-document.getElementById('rLumpSum').textContent=fmt(lumpSum);
-document.getElementById('rNote').textContent='Mức BHXH một lần trên đây là ước tính theo công thức: 1,5 tháng mức bình quân tiền lương cho mỗi năm đóng trước 2014 và 2 tháng cho mỗi năm đóng từ 2014 trở đi. Thời gian lẻ được làm tròn có lợi cho người lao động.';
-}else{
-warning.classList.add('hidden');
-const base=g==='male'?num(document.getElementById('maleBase').value):num(document.getElementById('femaleBase').value);
-const baseYears=g==='male'?num(document.getElementById('maleYears').value):num(document.getElementById('femaleYears').value);
-const inc=num(document.getElementById('increase').value),max=num(document.getElementById('maxRate').value);
-if(!Number.isFinite(base)||!Number.isFinite(baseYears)||!Number.isFinite(inc)||!Number.isFinite(max)){alert('Cấu hình tỷ lệ hưởng chưa hợp lệ.');return}
-let rate=base;
-if(g==='male'&&roundedPensionYears>=15&&roundedPensionYears<20){rate=40+(roundedPensionYears-15)*1}
-else if(roundedPensionYears>=baseYears){rate=Math.min(max,base+(roundedPensionYears-baseYears)*inc)}
-const pension=avg*rate/100;
-document.getElementById('rRate').textContent=rate.toFixed(2).replace(/\.00$/,'')+'%';
-document.getElementById('rPension').textContent=fmt(pension);
-document.getElementById('rPensionYear').textContent=fmt(pension*12);
-document.getElementById('rLumpSum').textContent=fmt(lumpSum);
-document.getElementById('rNote').textContent='Tỷ lệ hưởng lương hưu được tính theo thời gian đóng đã làm tròn: tháng lẻ từ 01–06 tháng tính 0,5 năm; từ 07–11 tháng tính 1 năm. Kết quả mang tính tham khảo; mức hưởng thực tế do cơ quan BHXH xác định.';
-}
-const birth=parseMonth(document.getElementById('birth').value);
-document.getElementById('rRetire').textContent=birth?'Cần kiểm tra theo tuổi nghỉ hưu và số năm đóng hiện có':'Chưa nhập hoặc nhập sai tháng/năm sinh';
-results.classList.remove('hidden');}
-
-function exportCSV(){
-let csv='\uFEFFSTT,Từ,Đến,Số tháng,Mức đóng/tháng,Hệ số điều chỉnh,Tổng đã điều chỉnh\n';
-rows.forEach((r,i)=>{const adj=Number.isFinite(r.months*r.salary*r.factor)?Math.round(r.months*r.salary*r.factor):0;csv+=`${i+1},${monthLabel(r.from)},${monthLabel(r.to)},${r.months||0},${r.salary||0},${r.factor||0},${adj}\n`});
-const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bao-cao-tinh-luong-huu.csv';a.click();}
-
-['name','gender','birth','type'].forEach(id=>{
-const el=document.getElementById(id);
-el.addEventListener('input',autoSaveCurrentUser);
-el.addEventListener('change',autoSaveCurrentUser);
-});
+['name','gender','birth','type'].forEach(id=>{const el=$(id);el.addEventListener('input',autoSaveCurrentUser);el.addEventListener('change',autoSaveCurrentUser)});
 window.addEventListener('beforeunload',autoSaveCurrentUser);
 window.addEventListener('pagehide',autoSaveCurrentUser);
 
-loadFactors();
-loadUsers();
-if(!storageOK)showStorageWarning();
+const remembered=loadJSON(REMEMBER_KEY,null);
+if(remembered){$('authEmail').value=remembered.email||'';$('authPassword').value=remembered.password||'';$('rememberMe').checked=true}
+const savedSession=loadJSON(SESSION_KEY,null);
+if(savedSession&&savedSession.access_token){session=savedSession;(async()=>{if(await ensureSession()){await enterApp()}else{signOut()}})()}
+setConn(false);
 </script>
 </body>
 </html>
